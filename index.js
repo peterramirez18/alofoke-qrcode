@@ -166,40 +166,61 @@ filter:
 }
 
 async function htmlToImage(html, outputPath) {
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-    ],
-  });
+  let browser;
 
-  const page = await browser.newPage();
+  try {
+    console.log("1. Lanzando navegador");
+    browser = await puppeteer.launch({
+      headless: true,
+      protocolTimeout: 120000,
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--disable-software-rasterizer",
+      ],
+    });
 
- await page.setContent(html, {
-  waitUntil: "domcontentloaded",
-  timeout: 0,
-});
-await page.waitForSelector(".qr-box", { timeout: 10000 });
-  await page.setViewport({
-    width: 1200,
-    height: 1200,
-    deviceScaleFactor: 3,
-  });
+    console.log("2. Creando página");
+    const page = await browser.newPage();
 
-  const element = await page.$(".qr-box");
+    await page.setViewport({
+      width: 700,
+      height: 700,
+      deviceScaleFactor: 3,
+    });
 
-  if (!element) {
-    throw new Error("No se encontró el elemento .qr-box para exportar.");
+    console.log("3. Inyectando HTML");
+    await page.setContent(html, {
+      waitUntil: "domcontentloaded",
+      timeout: 0,
+    });
+
+    console.log("4. Esperando .qr-box");
+    await page.waitForSelector(".qr-box", {
+      timeout: 10000,
+    });
+
+    const element = await page.$(".qr-box");
+
+    if (!element) {
+      throw new Error("No se encontró el elemento .qr-box para exportar.");
+    }
+
+    console.log("5. Tomando screenshot");
+    await element.screenshot({
+      path: outputPath,
+      type: "png",
+    });
+
+    console.log("6. Screenshot listo");
+  } finally {
+    if (browser) {
+      await browser.close();
+      console.log("7. Navegador cerrado");
+    }
   }
-
-  await element.screenshot({
-    path: outputPath,
-    type: "png",
-  });
-
-  await browser.close();
 }
 
 bot.on("message", async (msg) => {
