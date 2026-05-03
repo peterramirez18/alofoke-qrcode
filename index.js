@@ -6,6 +6,7 @@ const QRCode = require("qrcode");
 const puppeteer = require("puppeteer");
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 
 const bot = new TelegramBot(process.env.BOT_TOKEN, {
   polling: true,
@@ -167,17 +168,22 @@ filter:
 
 async function htmlToImage(html, outputPath) {
   let browser;
+  let userDataDir;
 
   try {
+    userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "telegram-qr-bot-"));
+
     browser = await puppeteer.launch({
-      headless: true,
+      headless: "new",
       protocolTimeout: 180000,
+      userDataDir,
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
         "--disable-dev-shm-usage",
         "--disable-gpu",
-        "--disable-software-rasterizer",
+        "--disable-extensions",
+        "--hide-scrollbars",
       ],
     });
 
@@ -190,7 +196,7 @@ async function htmlToImage(html, outputPath) {
     });
 
     await page.setContent(html, {
-      waitUntil: "domcontentloaded",
+      waitUntil: "networkidle0",
       timeout: 15000,
     });
 
@@ -233,6 +239,13 @@ async function htmlToImage(html, outputPath) {
     if (browser) {
       await browser.close();
     }
+
+    if (userDataDir && fs.existsSync(userDataDir)) {
+      fs.rmSync(userDataDir, {
+        recursive: true,
+        force: true,
+      });
+    }
   }
 }
 
@@ -266,6 +279,8 @@ https://www.instagram.com/peter.ramirez18/, @peter.ramirez18`
     );
   }
 
+  let outputPath;
+
   try {
     await bot.sendMessage(chatId, "Generando QR...");
 
@@ -294,7 +309,7 @@ https://www.instagram.com/peter.ramirez18/, @peter.ramirez18`
       logoDataUrl,
     });
 
-    const outputPath = path.join(__dirname, `qr-${Date.now()}.png`);
+    outputPath = path.join(__dirname, `qr-${Date.now()}.png`);
 
     await htmlToImage(html, outputPath);
 
@@ -302,7 +317,6 @@ https://www.instagram.com/peter.ramirez18/, @peter.ramirez18`
       caption: "Aquí tienes tu QR personalizado.",
     });
 
-    fs.unlinkSync(outputPath);
   } catch (error) {
     console.error("ERROR COMPLETO:", error);
 
@@ -312,5 +326,9 @@ https://www.instagram.com/peter.ramirez18/, @peter.ramirez18`
 
 ${error.message}`
     );
+  } finally {
+    if (outputPath && fs.existsSync(outputPath)) {
+      fs.unlinkSync(outputPath);
+    }
   }
 });
