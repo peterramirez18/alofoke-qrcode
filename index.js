@@ -16,7 +16,7 @@ const PORT = process.env.PORT || 3000;
 
 app.get("/", (req, res) => {
   res.send("Telegram QR Bot funcionando ✅");
-});
+});f
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Servidor escuchando en puerto ${PORT}`);
@@ -169,10 +169,9 @@ async function htmlToImage(html, outputPath) {
   let browser;
 
   try {
-    console.log("1. Lanzando navegador");
     browser = await puppeteer.launch({
       headless: true,
-      protocolTimeout: 120000,
+      protocolTimeout: 180000,
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
@@ -182,23 +181,21 @@ async function htmlToImage(html, outputPath) {
       ],
     });
 
-    console.log("2. Creando página");
     const page = await browser.newPage();
 
     await page.setViewport({
-      width: 700,
-      height: 700,
-      deviceScaleFactor: 3,
+      width: 800,
+      height: 800,
+      deviceScaleFactor: 2,
     });
 
-    console.log("3. Inyectando HTML");
     await page.setContent(html, {
       waitUntil: "domcontentloaded",
-      timeout: 0,
+      timeout: 15000,
     });
 
-    console.log("4. Esperando .qr-box");
     await page.waitForSelector(".qr-box", {
+      visible: true,
       timeout: 10000,
     });
 
@@ -208,17 +205,33 @@ async function htmlToImage(html, outputPath) {
       throw new Error("No se encontró el elemento .qr-box para exportar.");
     }
 
-    console.log("5. Tomando screenshot");
-    await element.screenshot({
-      path: outputPath,
-      type: "png",
+    await element.evaluate((el) => {
+      el.scrollIntoView({
+        block: "center",
+        inline: "center",
+      });
     });
 
-    console.log("6. Screenshot listo");
+    const box = await element.boundingBox();
+
+    if (!box) {
+      throw new Error("No se pudo calcular el tamaño del elemento .qr-box.");
+    }
+
+    await page.screenshot({
+      path: outputPath,
+      type: "png",
+      clip: {
+        x: Math.max(0, Math.floor(box.x)),
+        y: Math.max(0, Math.floor(box.y)),
+        width: Math.ceil(box.width),
+        height: Math.ceil(box.height),
+      },
+      omitBackground: true,
+    });
   } finally {
     if (browser) {
       await browser.close();
-      console.log("7. Navegador cerrado");
     }
   }
 }
@@ -257,7 +270,7 @@ https://www.instagram.com/peter.ramirez18/, @peter.ramirez18`
     await bot.sendMessage(chatId, "Generando QR...");
 
     const qrBase64 = await QRCode.toDataURL(link, {
-      width: 3000,
+      width: 1200,
       margin: 1,
       errorCorrectionLevel: "H",
       color: {
