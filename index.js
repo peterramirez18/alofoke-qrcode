@@ -177,10 +177,11 @@ async function htmlToImage(html, outputPath) {
 
   const page = await browser.newPage();
 
-  await page.setContent(html, {
-    waitUntil: "networkidle0",
-  });
-
+ await page.setContent(html, {
+  waitUntil: "domcontentloaded",
+  timeout: 0,
+});
+await page.waitForSelector(".qr-box", { timeout: 10000 });
   await page.setViewport({
     width: 1200,
     height: 1200,
