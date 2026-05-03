@@ -196,9 +196,17 @@ async function htmlToImage(html, outputPath) {
     });
 
     await page.setContent(html, {
-      waitUntil: "networkidle0",
-      timeout: 15000,
+      waitUntil: "domcontentloaded",
+      timeout: 30000,
     });
+
+    await page.waitForFunction(
+      () =>
+        Array.from(document.images).every(
+          (img) => img.complete && img.naturalWidth > 0
+        ),
+      { timeout: 20000 }
+    );
 
     await page.waitForSelector(".qr-box", {
       visible: true,
